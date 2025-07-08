@@ -1,8 +1,9 @@
+python_version == "3.11"
 streamlit
 pandas
-numpy==1.26.4 #
+numpy
 librosa
 noisereduce
-tensorflow==2.19.0 # GANTI dengan versi TensorFlow yang  digunakan saat training model
+tensorflow
 scikit-learn
 openpyxl
