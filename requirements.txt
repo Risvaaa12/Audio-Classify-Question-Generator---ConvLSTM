@@ -5,5 +5,4 @@ librosa
 noisereduce
 tensorflow==2.19.0 # GANTI dengan versi TensorFlow yang  digunakan saat training model
 scikit-learn
-ffmpeg==7.0.2
 openpyxl
