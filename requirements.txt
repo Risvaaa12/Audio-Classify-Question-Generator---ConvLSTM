@@ -1,8 +1,8 @@
 streamlit
 pandas
-numpy
+numpy==1.26.4
 librosa
 noisereduce
-tensorflow
+tensorflow==2.19.0
 scikit-learn
 openpyxl
