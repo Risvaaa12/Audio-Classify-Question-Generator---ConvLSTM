@@ -20,7 +20,7 @@ import openpyxl
 # ==============================================================================
 st.set_page_config(
     layout="wide",
-    page_title="Audio Classification & Soal Generator"
+    page_title="Harmoni Nusantara - Soal Generator"
 )
 
 # ==============================================================================
@@ -44,77 +44,51 @@ GAMELAN_CLASSES = ['angklung', 'baleganjur', 'gong_gede', 'gong_kebyar', 'semar_
 # ==============================================================================
 # FUNGSI-FUNGSI HELPER
 # ==============================================================================
-
 def parse_excel_questions(file_bytes):
-    """
-    Membaca file Excel dari bytes dan mengubahnya menjadi daftar dictionary.
-    Fungsi ini memvalidasi header dan mem-parsing setiap baris menjadi struktur data soal.
-    """
+    """Membaca file Excel dengan format baru (tanpa kolom provinsi)."""
     parsed_questions = []
     try:
         workbook = openpyxl.load_workbook(io.BytesIO(file_bytes))
         sheet = workbook.active
         headers = [cell.value for cell in sheet[1]]
-
+        
         expected_headers = [
-            "Nomor_Provinsi", "Nama_Provinsi", "Nomor_Level", "ID_Soal_Dalam_Level",
-            "Teks_Pertanyaan", "Opsi_A", "Opsi_B", "Opsi_C", "Opsi_D",
-            "Kunci_Jawaban_Dokumen", "Nama_File_Gambar", "Nama_File_Audio_Untuk_Soal"
+            "Nomor_Level", "ID_Soal_Dalam_Level", "Teks_Pertanyaan", 
+            "Opsi_A", "Opsi_B", "Opsi_C", "Opsi_D", "Kunci_Jawaban_Dokumen",
+            "Nama_File_Gambar", "Nama_File_Audio_Untuk_Soal"
         ]
-
-        missing_headers = [eh for eh in expected_headers[:9] if eh not in headers]
+        
+        missing_headers = [eh for eh in expected_headers[:7] if eh not in headers]
         if missing_headers:
             st.error(f"Header Excel tidak ditemukan: {', '.join(missing_headers)}.")
             return []
 
         for row_num, row_values in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
-            if not any(row_values):
-                continue  
-
+            if not any(row_values): continue
             row_data = dict(zip(headers, row_values))
             try:
-                province_num = int(row_data.get("Nomor_Provinsi"))
-                province_name = str(row_data.get("Nama_Provinsi", "")).strip()
                 level_num = int(row_data.get("Nomor_Level"))
                 q_id_in_level = int(row_data.get("ID_Soal_Dalam_Level"))
                 teks_soal = str(row_data.get("Teks_Pertanyaan", "")).strip()
                 kunci = str(row_data.get("Kunci_Jawaban_Dokumen", "")).strip().lower()
-
-                if not all([province_name, teks_soal, kunci]):
-                    st.caption(f"Baris Excel {row_num}: Nama Provinsi/Teks soal/Kunci kosong, dilewati.")
-                    continue
-                if kunci not in ['a', 'b', 'c', 'd']:
-                    st.caption(f"Baris Excel {row_num}: Kunci '{kunci}' tidak valid, dilewati.")
-                    continue
-
+                
+                if not teks_soal or not kunci: continue
+                if kunci not in ['a', 'b', 'c', 'd']: continue
+                
                 parsed_questions.append({
-                    'province_number': province_num,
-                    'province_name': province_name,
                     'level_number': level_num,
                     'id_in_level': q_id_in_level,
                     'teks_soal': teks_soal,
                     'opsi_jawaban': {
-                        'a': str(row_data.get("Opsi_A", "")).strip(),
-                        'b': str(row_data.get("Opsi_B", "")).strip(),
-                        'c': str(row_data.get("Opsi_C", "")).strip(),
-                        'd': str(row_data.get("Opsi_D", "")).strip()
+                        'a': str(row_data.get("Opsi_A", "")).strip(), 'b': str(row_data.get("Opsi_B", "")).strip(),
+                        'c': str(row_data.get("Opsi_C", "")).strip(), 'd': str(row_data.get("Opsi_D", "")).strip()
                     },
                     'kunci_jawaban_dokumen': kunci,
                     'nama_file_gambar': str(row_data.get("Nama_File_Gambar", "")).strip() or None,
                     'nama_file_audio_excel': str(row_data.get("Nama_File_Audio_Untuk_Soal", "")).strip() or None
                 })
-            except (ValueError, TypeError):
-                st.caption(f"Baris Excel {row_num}: Error konversi data (pastikan Nomor_Provinsi, Nomor_Level, dan ID adalah angka), dilewati.")
-            except Exception as e:
-                st.error(f"Error proses baris {row_num}: {e}")
-
-        if parsed_questions:
-            st.success(f"Berhasil parsing {len(parsed_questions)} soal dari Excel.")
-        elif sheet.max_row > 1:
-            st.warning("Tidak ada soal valid yang berhasil diparsing dari Excel.")
-
-    except Exception as e:
-        st.error(f"Gagal memproses file Excel: {e}")
+            except (ValueError, TypeError): st.caption(f"Baris Excel {row_num}: Error konversi data, dilewati.")
+    except Exception as e: st.error(f"Gagal memproses file Excel: {e}")
     return parsed_questions
 
 def denoise_audio(y, sr):
@@ -362,9 +336,8 @@ def process_document(doc_file):
 st.markdown("<h1 style='text-align: center;'>Gamelan Classification & Soal Generator</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
-st.markdown("<h4 style='text-align: center;'>Unggah File Soal Excel (.xlsx)</h4>", unsafe_allow_html=True)
-st.caption("Pastikan Excel memiliki kolom yang sesuai: Nomor_Provinsi, Nama_Provinsi, Nomor_Level, ID_Soal_Dalam_Level, Teks_Pertanyaan, Opsi_A, Opsi_B, Opsi_C, Opsi_D, Kunci_Jawaban_Dokumen, Nama_File_Gambar (opsional), Nama_File_Audio_Untuk_Soal (opsional).")
-
+st.markdown("<h4 style='text-align: center;'>1. Unggah File Soal Excel (.xlsx)</h4>", unsafe_allow_html=True)
+st.caption("Pastikan Excel memiliki kolom: Nomor_Level, ID_Soal_Dalam_Level, Teks_Pertanyaan, Opsi_A, Opsi_B, Opsi_C, Opsi_D, Kunci_Jawaban_Dokumen, Nama_File_Gambar (ops), Nama_File_Audio_Untuk_Soal (ops).")
 uploaded_doc = st.file_uploader(
     "Unggah file Excel",
     type=["xlsx", "xls"],
@@ -525,54 +498,11 @@ with col_hasil_validasi:
 # ==============================================================================
 # DIALOG POP-UP
 # ==============================================================================
-
-# --- Dialog Proses Validasi Audio ---
-if st.session_state.get('show_validation_modal', False):
-    @st.dialog("Proses Validasi Audio")
-    def validation_dialog():
-        st.info("Validasi audio sedang berlangsung...")
-        prog_bar = st.empty()
-        prog_bar.progress(0, text="Mempersiapkan...")
-        
-        to_validate_now = st.session_state.get('files_being_validated', [])
-        if to_validate_now:
-            new_results = classify_audio_files_streamlit(to_validate_now, prog_bar)
-            
-            # Update hasil klasifikasi
-            current_results = {r['id']: r for r in st.session_state.classification_results}
-            for nr in new_results:
-                current_results[nr['id']] = nr
-            st.session_state.classification_results = list(current_results.values())
-            
-            s_count = sum(1 for r in new_results if 'error' not in r or not r['error'])
-            if len(new_results) > 0:
-                st.toast(f"Validasi selesai. Berhasil: {s_count}/{len(new_results)}.", icon="📊" if s_count < len(new_results) else "💡")
-        else:
-            prog_bar.info("Tidak ada file baru untuk divalidasi.")
-            
-        # Tutup dialog dan reset state
-        st.session_state.show_validation_modal = False
-        st.session_state.files_being_validated = []
-        st.rerun()
-
-    validation_dialog()
-
-st.markdown("---")
-
-# --- Tombol Ekspor ---
-st.button(
-    "⬇️ Ekspor Soal ke Format JSON",
-    use_container_width=True,
-    on_click=open_export_dialog,
-    disabled=not st.session_state.parsed_document_questions
-)
-
-# --- Dialog Ekspor JSON ---
 if st.session_state.get('show_export_dialog', False):
     @st.dialog("Buat File JSON Soal", width="large")
-    def export_dialog_final_complete():      
+    def export_dialog_final_complete():
         st.markdown("### Pratinjau & Edit Soal Sebelum Ekspor")
-        st.caption("Untuk soal audio, Anda dapat mengganti kunci jawaban final di bawah ini berdasarkan prediksi model atau pilihan Anda.")
+        st.caption("Untuk soal audio, Anda dapat mengganti kunci jawaban final di bawah ini.")
         st.markdown("---")
 
         doc_qs = st.session_state.parsed_document_questions
@@ -580,24 +510,24 @@ if st.session_state.get('show_export_dialog', False):
 
         if not doc_qs:
             st.warning("Tidak ada data soal dari Excel untuk ditampilkan.")
-            if st.button("Tutup"):
-                st.session_state.show_export_dialog = False
-                st.rerun()
+            if st.button("Tutup"): st.session_state.show_export_dialog = False; st.rerun()
             return
 
+        # --- BAGIAN 1: TAMPILKAN UI DETAIL & EDIT ---
         with st.container(height=600, border=True):
             for q_data in doc_qs:
-                prov_num = q_data.get('province_number')
                 level_num = q_data.get('level_number')
                 q_id = q_data.get('id_in_level')
                 q_text = q_data.get('teks_soal', "N/A")
                 q_opts = q_data.get('opsi_jawaban', {})
                 key_excel = str(q_data.get('kunci_jawaban_dokumen', "")).lower()
                 audio_file_excel = q_data.get('nama_file_audio_excel')
-                q_uid_tuple = (prov_num, level_num, q_id)
+                
+                # UID sekarang lebih sederhana karena tidak ada provinsi
+                q_uid_tuple = (level_num, q_id)
 
                 with st.container(border=True):
-                    st.subheader(f"Provinsi {prov_num} - Level {level_num} - Soal ID {q_id}")
+                    st.subheader(f"Level {level_num} - Soal ID {q_id}")
                     st.markdown(f"**Pertanyaan:** {q_text}")
                     st.markdown("**Opsi Jawaban:**")
                     opt_cols = st.columns(2)
@@ -606,19 +536,16 @@ if st.session_state.get('show_export_dialog', False):
                     
                     st.markdown(f"**Kunci Jawaban dari Excel:** `{key_excel.upper()}`")
 
-                    # Jika soal memiliki audio
                     if audio_file_excel:
                         st.markdown(f"**File Audio Terkait:** `{audio_file_excel}`")
-                        
                         pred_display = "_Audio belum divalidasi atau tidak ditemukan_"
                         if audio_file_excel in audio_res_map:
                             probs = audio_res_map[audio_file_excel]['probabilities']
                             if probs:
                                 top_cls = max(probs, key=probs.get)
-                                pred_display = f"Prediksi Model: **{top_cls}** (Probabilitas: {probs[top_cls]:.2%})"
-                        st.info(pred_display, icon="🎵")
+                                pred_display = f"Prediksi Model: **{top_cls}** (Prob: {probs[top_cls]:.2%})"
+                        st.info(pred_display, icon="�")
                         
-                        # Opsi untuk mengedit kunci jawaban
                         valid_opts_keys = [k.lower() for k, v in q_opts.items() if v and v.strip()]
                         key_to_show = st.session_state.edited_audio_answer_keys.get(q_uid_tuple, key_excel)
                         
@@ -629,67 +556,62 @@ if st.session_state.get('show_export_dialog', False):
 
                         if valid_opts_keys:
                             edited_key = st.radio(
-                                "**Pilih Kunci Jawaban Final:**",
-                                valid_opts_keys,
-                                index=default_index,
-                                key=f"edit_{q_uid_tuple}",
-                                horizontal=True,
-                                format_func=lambda x: x.upper()
+                                "**Pilih Kunci Jawaban Final:**", valid_opts_keys, 
+                                index=default_index, key=f"edit_L{level_num}_Q{q_id}", 
+                                horizontal=True, format_func=lambda x: x.upper()
                             )
                             st.session_state.edited_audio_answer_keys[q_uid_tuple] = edited_key
 
         st.markdown("---")
 
-        grouped_data = defaultdict(lambda: {"province_name": "", "levels": defaultdict(list)})
+        # --- BAGIAN 2: PROSES DATA UNTUK OUTPUT JSON NESTED ---
+        grouped_levels = defaultdict(list)
         for q_data in doc_qs:
-            prov_num = q_data.get('province_number')
             level_num = q_data.get('level_number')
-            if prov_num is not None and level_num is not None:
-                grouped_data[prov_num]["province_name"] = q_data.get('province_name')
-                grouped_data[prov_num]["levels"][level_num].append(q_data)
+            if level_num is not None:
+                grouped_levels[level_num].append(q_data)
 
-        final_json_output = []
-        for province_num, province_data in sorted(grouped_data.items()):
-            province_object = {"nomor_province": province_num, "nama_province": province_data["province_name"], "levels_in_province": []}
-            for level_num, questions_in_level in sorted(province_data["levels"].items()):
-                level_object = {"level": level_num, "questions_in_level": []}
-                for q_data in questions_in_level:
-                    q_uid_tuple = (q_data.get('province_number'), q_data.get('level_number'), q_data.get('id_in_level'))
-                    final_key = st.session_state.edited_audio_answer_keys.get(q_uid_tuple, q_data.get('kunci_jawaban_dokumen'))
-                    
-                    img_file = q_data.get('nama_file_gambar')
-                    audio_file_excel = q_data.get('nama_file_audio_excel')
-                    
-                    question_object = {
-                        "id": q_data.get('id_in_level'),
-                        "path_audio": f"/aset/{audio_file_excel}" if audio_file_excel else None,
-                        "path_gambar": f"/aset/{img_file}" if img_file else None,
-                        "teks_pertanyaan": q_data.get('teks_soal'),
-                        "opsi_jawaban": q_data.get('opsi_jawaban'),
-                        "kunci_jawaban_dokumen": final_key
-                    }
-                    level_object["questions_in_level"].append(question_object)
-                if level_object["questions_in_level"]:
-                    province_object["levels_in_province"].append(level_object)
-            if province_object["levels_in_province"]:
-                final_json_output.append(province_object)
+        # Buat satu objek Provinsi (Bali) secara hardcode
+        bali_province_object = {
+            "nomor_province": 1,
+            "nama_province": "Bali",
+            "levels_in_province": []
+        }
 
-        # Tombol unduh dan tutup
-        pretty = st.checkbox("Format JSON (Pretty Print)", True)
+        for level_num, questions_in_level in sorted(grouped_levels.items()):
+            level_object = {"level": level_num, "questions_in_level": []}
+            for q_data in questions_in_level:
+                q_uid_tuple = (q_data.get('level_number'), q_data.get('id_in_level'))
+                final_key = st.session_state.edited_audio_answer_keys.get(q_uid_tuple, q_data.get('kunci_jawaban_dokumen'))
+                
+                img_file = q_data.get('nama_file_gambar')
+                audio_file_excel = q_data.get('nama_file_audio_excel')
+                
+                question_object = {
+                    "id": q_data.get('id_in_level'),
+                    "path_audio": f"/aset/{audio_file_excel}" if audio_file_excel else None,
+                    "path_gambar": f"/aset/{img_file}" if img_file else None,
+                    "teks_pertanyaan": q_data.get('teks_soal'),
+                    "opsi_jawaban": q_data.get('opsi_jawaban'),
+                    "kunci_jawaban_dokumen": final_key
+                }
+                level_object["questions_in_level"].append(question_object)
+            if level_object["questions_in_level"]:
+                bali_province_object["levels_in_province"].append(level_object)
+        
+        final_json_output = [bali_province_object]
+
+        # --- BAGIAN 3: TOMBOL UNDUH & TUTUP ---
+        pretty = st.checkbox("Format JSON agar mudah dibaca (Pretty Print)", True)
         json_out = json.dumps(final_json_output, indent=4 if pretty else None, ensure_ascii=False)
         
         dl_col, cc_col = st.columns(2)
-        def close_action():
-            st.session_state.show_export_dialog = False
+        def close_action(): st.session_state.show_export_dialog = False
         
         dl_col.download_button(
-            "💾 Unduh Soal",
-            json_out,
-            "susunan_soal.json",
-            "application/json",
-            disabled=not final_json_output,
-            use_container_width=True,
-            on_click=close_action
+            "💾 Unduh susunan_soal.json", json_out, "susunan_soal.json", 
+            "application/json", disabled=not final_json_output[0]["levels_in_province"], 
+            use_container_width=True, on_click=close_action
         )
         if cc_col.button("Tutup", use_container_width=True):
             close_action()
