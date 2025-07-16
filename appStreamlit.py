@@ -45,7 +45,7 @@ GAMELAN_CLASSES = ['angklung', 'baleganjur', 'gong_gede', 'gong_kebyar', 'semar_
 # FUNGSI-FUNGSI HELPER
 # ==============================================================================
 def parse_excel_questions(file_bytes):
-    """Membaca file Excel dengan format baru (tanpa kolom provinsi)."""
+    """Membaca file Excel """
     parsed_questions = []
     try:
         workbook = openpyxl.load_workbook(io.BytesIO(file_bytes))
@@ -333,10 +333,10 @@ def process_document(doc_file):
 # ==============================================================================
 
 # --- Judul Aplikasi ---
-st.markdown("<h1 style='text-align: center;'>Gamelan Classification & Soal Generator</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>Harmoni Nusantara - Soal Generator</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
-st.markdown("<h4 style='text-align: center;'>1. Unggah File Soal Excel (.xlsx)</h4>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align: center;'>Unggah File Soal Excel (.xlsx)</h4>", unsafe_allow_html=True)
 st.caption("Pastikan Excel memiliki kolom: Nomor_Level, ID_Soal_Dalam_Level, Teks_Pertanyaan, Opsi_A, Opsi_B, Opsi_C, Opsi_D, Kunci_Jawaban_Dokumen, Nama_File_Gambar (ops), Nama_File_Audio_Untuk_Soal (ops).")
 uploaded_doc = st.file_uploader(
     "Unggah file Excel",
@@ -494,10 +494,51 @@ with col_hasil_validasi:
         else:
             st.warning("Tidak ada file audio untuk divalidasi.")
 
-
 # ==============================================================================
 # DIALOG POP-UP
-# ==============================================================================
+# =============================================================================
+# --- Dialog Proses Validasi Audio ---
+if st.session_state.get('show_validation_modal', False):
+    @st.dialog("Proses Validasi Audio")
+    def validation_dialog():
+        st.info("Validasi audio sedang berlangsung...")
+        prog_bar = st.empty()
+        prog_bar.progress(0, text="Mempersiapkan...")
+
+        to_validate_now = st.session_state.get('files_being_validated', [])
+        if to_validate_now:
+            new_results = classify_audio_files_streamlit(to_validate_now, prog_bar)
+
+            # Update hasil klasifikasi
+            current_results = {r['id']: r for r in st.session_state.classification_results}
+            for nr in new_results:
+                current_results[nr['id']] = nr
+            st.session_state.classification_results = list(current_results.values())
+
+            s_count = sum(1 for r in new_results if 'error' not in r or not r['error'])
+            if len(new_results) > 0:
+                st.toast(f"Validasi selesai. Berhasil: {s_count}/{len(new_results)}.", icon="📊" if s_count < len(new_results) else "💡")
+        else:
+            prog_bar.info("Tidak ada file baru untuk divalidasi.")
+
+        # Tutup dialog dan reset state
+        st.session_state.show_validation_modal = False
+        st.session_state.files_being_validated = []
+        st.rerun()
+
+    validation_dialog()
+
+st.markdown("---")
+
+# --- Tombol Ekspor ---
+st.button(
+    "⬇️ Ekspor Soal ke Format JSON",
+    use_container_width=True,
+    on_click=open_export_dialog,
+    disabled=not st.session_state.parsed_document_questions
+)
+
+# --- Dialog Ekspor JSON ---
 if st.session_state.get('show_export_dialog', False):
     @st.dialog("Buat File JSON Soal", width="large")
     def export_dialog_final_complete():
@@ -544,7 +585,7 @@ if st.session_state.get('show_export_dialog', False):
                             if probs:
                                 top_cls = max(probs, key=probs.get)
                                 pred_display = f"Prediksi Model: **{top_cls}** (Prob: {probs[top_cls]:.2%})"
-                        st.info(pred_display, icon="�")
+                        st.info(pred_display, icon="🤖")
                         
                         valid_opts_keys = [k.lower() for k, v in q_opts.items() if v and v.strip()]
                         key_to_show = st.session_state.edited_audio_answer_keys.get(q_uid_tuple, key_excel)
@@ -571,7 +612,6 @@ if st.session_state.get('show_export_dialog', False):
             if level_num is not None:
                 grouped_levels[level_num].append(q_data)
 
-        # Buat satu objek Provinsi (Bali) secara hardcode
         bali_province_object = {
             "nomor_province": 1,
             "nama_province": "Bali",
